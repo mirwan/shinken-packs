@@ -1,0 +1,30 @@
+import sys
+try:
+    
+    uptime = perf(self, 'uptime')
+    
+    minutes, seconds = divmod(uptime, 60)
+    hours, minutes = divmod(minutes, 60)
+    days, hours = divmod(hours, 24)
+    weeks, days = divmod(days, 7)
+    months, weeks = divmod(weeks, 4)
+    years, months = divmod(months, 12)
+    
+    output=[]
+    if years > 0:
+       output.append( '%d year(s)' % years )
+    if months > 0:
+       output.append( '%d month(s)' % months )
+    if weeks > 0:
+       output.append( '%d week(s)' % weeks )
+    if days > 0:
+       output.append( '%d day(s)' % days )
+    if hours > 0:
+       output.append( '%d hour(s)' % hours )
+    if minutes > 0:
+       output.append( '%d minute(s)' % minutes )
+    output.append( '%d second(s)' % seconds )
+    
+    set_value(self, 'OK - ' + ', '.join(output), "", 0)
+except:
+    unknown(self, 'UNKNOWN | Smthg went wrong: %s' % sys.exc_info()[0])

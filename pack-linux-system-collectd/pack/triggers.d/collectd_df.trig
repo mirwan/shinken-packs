@@ -1,0 +1,144 @@
+#!/usr/bin/env python
+
+import re
+def readable(octets):
+    units = ['KB', 'MB', 'GB', 'TB', 'PB']
+    unit = 'B'
+    for i, u in enumerate(units):
+        if octets > 1024:
+            octets = octets / 1024.0
+            unit = units[i]
+        else:
+            break
+    return octets, unit
+
+
+exit_code_output = {0: 'OK',
+                    1: 'WARNING',
+                    2: 'CRITICAL',
+                    3: 'UNKNOWN',
+                   }
+exit_code = 0
+outputs = []
+toto = {}
+# Get threshold
+#outputs.append(str(self.host.customs))
+toto['used_warn_p'] = self.host.customs.get('_STORAGE_USED_WARN', None)
+toto['used_crit_p'] = self.host.customs.get('_STORAGE_USED_CRIT', None)
+#outputs.append('1 %s %s' % (toto['used_warn_p'], toto['used_crit_p']))
+if toto['used_warn_p'] and toto['used_crit_p']:
+    toto['used_warn_p'] = float(toto['used_warn_p'])
+    toto['used_crit_p'] = float(toto['used_crit_p'])
+    toto['free_warn_p'] = 100 - toto['used_warn_p']
+    toto['free_crit_p'] = 100 - toto['used_crit_p']
+else:
+    toto['free_warn_p'] = self.host.customs.get('_STORAGE_FREE_WARN', None)
+    toto['free_crit_p'] = self.host.customs.get('_STORAGE_FREE_CRIT', None)
+    if toto['free_warn_p'] and toto['free_crit_p']:
+        toto['free_warn_p'] = float(toto['free_warn_p'])
+        toto['free_crit_p'] = float(toto['free_crit_p'])
+        toto['used_warn_p'] = 100 - toto['free_warn_p']
+        toto['used_crit_p'] = 100 - toto['free_crit_p']
+
+#outputs.append(str(toto))
+
+# Get perfs
+metrics = allperfs(self)
+df_names = set([re.match('([^-]*)-(.*)-([^-]*)', metric_name).groups()[1]
+            for metric_name in metrics])
+
+perf_datas = []
+exit_codes = []
+
+for df in df_names:
+    data = {}
+    this_exit_code = 0
+    tmp_output = ""
+    data['df'] = df
+    bad_data = False
+    for name in ['free', 'reserved', 'used']:
+        try:
+            data[name] = float(metrics.get('df_complex-%s-%s' % (df, name)).value)
+        except AttributeError:
+            # If we get an error, we just pass this data_name (IN and OUT are ignored)
+            bad_data = True
+            break
+    if bad_data:
+        continue
+
+    data['total'] = data['free'] + data['reserved'] + data['used']
+    data['used_p'] = data['used'] * 100 / data['total']
+    data['free_p'] = data['free'] * 100 / data['total']
+
+    # specific threshold
+    data['used_warn_p'] = self.host.customs.get('_STORAGE_%s_USED_WARN' % df.upper(), None)
+    data['used_crit_p'] = self.host.customs.get('_STORAGE_%s_USED_CRIT' % df.upper(), None)
+    #outputs.append('%s %s' % (data['used_warn_p'], data['used_crit_p']))
+    if data['used_warn_p'] and data['used_crit_p']:
+        #outputs.append('yeah')
+        data['used_warn_p'] = float(data['used_warn_p'])
+        data['used_crit_p'] = float(data['used_crit_p'])
+        data['free_warn_p'] = 100 - data['used_warn_p']
+        data['free_crit_p'] = 100 - data['used_crit_p']
+    else:
+        data['free_warn_p'] = self.host.customs.get('_STORAGE_%s_FREE_WARN' % df.upper(), None)
+        data['free_crit_p'] = self.host.customs.get('_STORAGE_%s_FREE_CRIT' % df.upper(), None)
+        if data['free_warn_p'] and data['free_crit_p']:
+            data['free_warn_p'] = float(data['free_warn_p'])
+            data['free_crit_p'] = float(data['free_crit_p'])
+            data['used_warn_p'] = 100 - data['free_warn_p']
+            data['used_crit_p'] = 100 - data['free_crit_p']
+
+    if data['used_warn_p'] is None:
+        if toto['used_warn_p']:
+            data['used_warn_p'] = toto['used_warn_p']
+            data['used_crit_p'] = toto['used_crit_p']
+            data['free_warn_p'] = toto['free_warn_p']
+            data['free_crit_p'] = toto['free_crit_p']
+
+    #outputs.append('%s %s %s\n' % (df, data['used_warn_p'], data['used_crit_p']))
+    # Transform threshold
+    if data['used_warn_p']:
+        data['used_warn'] = data['used_warn_p'] * data['total'] / 100.0
+        data['used_crit'] = data['used_crit_p'] * data['total'] / 100.0
+        data['free_warn'] = data['free_warn_p'] * data['total'] / 100.0
+        data['free_crit'] = data['free_crit_p'] * data['total'] / 100.0
+
+    # Prepare output
+    if data['used_warn_p']:
+        tmp_perf_data = ("%(df)s_free=%(free)dbytes;%(free_warn)d;%(free_crit)d;0;%(total)d "
+                     "%(df)s_used=%(used)dbytes;%(used_warn)d;%(used_crit)d;0;%(total)d " % data)
+    else:
+        tmp_perf_data = ("%(df)sfree=%(free)dbytes;;;0;%(total)d "
+                     "%(df)sused=%(used)dbytes;;;0;%(total)d " % data)
+
+    data['h_free'], data['h_free_u'] = readable(data['free'])
+    data['h_used'], data['h_used_u'] = readable(data['used'])
+    data['h_total'], data['h_total_u'] = readable(data['total'])
+    tmp_output = "%(df)s: %(h_used)0.2f%(h_used_u)s/%(h_total)0.2f%(h_total_u)s (Free: %(h_free)0.2f%(h_free_u)s)" % data
+
+    # Get status
+    if data['used_warn_p']:
+        if data['free_p'] < data['free_crit_p']:
+            this_exit_code = 2
+        elif data['free_p'] < data['free_warn_p']:
+            this_exit_code = 1
+
+    exit_codes.append(this_exit_code)
+
+    # Finish output
+    if this_exit_code > 0:
+        outputs.append(" - ".join((exit_code_output[this_exit_code], tmp_output)))
+    #else:
+    #    outputs.append(tmp_output)
+    perf_datas.append(tmp_perf_data)
+
+if len(exit_codes) == 0:
+    exit_code = 3
+    set_value(self, None, None, exit_code)
+else:
+    exit_code = max(exit_codes)
+    output = "\n".join(outputs)
+    output = "Disk spaces: " + exit_code_output[exit_code] + '\n' + output
+    perf_data = " ".join(perf_datas)
+    set_value(self, output, perf_data, exit_code)

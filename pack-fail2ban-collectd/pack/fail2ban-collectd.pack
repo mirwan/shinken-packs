@@ -1,0 +1,21 @@
+{
+"name":"fail2ban-collectd",
+
+"description":"Fail2ban jails and process checks received via Collectd",
+
+"path":"os/",
+
+"macros":{
+        "_PROCESS_FAIL2BAN_MIN_WARN": {"type": "integer,
+                                   "description": "Min number of fail2ban processs, warning threshold"
+                                  },
+        "_PROCESS_FAIL2BAN_MIN_CRIT": {"type": "integer,
+                                   "description": "Min number of fail2ban processs, critical threshold"
+                                  },
+        "_FAIL2BAN_SSH_MAX_WARN": {"type": "integer,
+                                       "description": "Max number currently banned ip, warning threshold"
+                                      },
+        "_FAIL2BAN_SSH_MAX_CRIT": {"type": "integer,
+                                       "description": "Max number currently banned ip, critical threshold"
+                                      }
+}

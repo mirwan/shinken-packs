@@ -1,0 +1,49 @@
+#!/usr/bin/env python
+
+
+import operator
+def readable(octets):
+    units = ['K', 'M', 'G', 'T', 'P']
+    unit = 'B'
+    for i, u in enumerate(units):
+        if octets >= 1024:
+            octets = octets / 1024.0
+            unit = units[i]
+        else:
+            break
+    return octets, unit
+
+exit_code_output = {0: 'OK',
+                    1: 'WARNING',
+                    2: 'CRITICAL',
+                    3: 'UNKNOWN',
+                   }
+exit_code = 0
+
+
+output=[]
+perf_data=""
+thyallperfs = allperfs(self)
+perfclasses = {}
+for metric_name, metric_value in thyallperfs.items():
+    noclass = metric_name.split('-')[len(metric_name.split('-'))-1]
+    if not perfclasses.has_key(noclass):
+        perfclasses[noclass]=0
+    perfclasses[noclass]+=metric_value.value
+
+for noclass_name, noclass_value in perfclasses.items():
+    warn = self.host.customs.get('_TCP_%s_WARN' % noclass_name.upper())
+    crit = self.host.customs.get('_TCP_%s_CRIT' % noclass_name.upper())
+	
+    if crit is not None and noclass_value >= int(crit):
+        exit_code = 2
+    elif warn is not None and noclass_value >= int(warn):
+        if exit_code == 0:
+            exit_code = 1
+
+    output.append('%s=%d' % (noclass_name,noclass_value))
+    
+    
+
+output = ' - '.join((exit_code_output[exit_code], ', '.join(output)))
+set_value(self, output, perf_data, exit_code)

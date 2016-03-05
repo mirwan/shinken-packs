@@ -1,0 +1,21 @@
+{
+"name":"linux-system-collectd",
+
+"description":"My standard linux collectd checks, like CPU, RAM and disk space. Checks are done by triggers on collectd data.",
+
+"path":"os/",
+
+"macros":{
+        "_PROCESS_UPSMON_MIN_WARN": {"type": "integer,
+                                   "description": "Min number of upsmon processs, warning threshold"
+                                  },
+        "_PROCESS_UPSMON_MIN_CRIT": {"type": "integer,
+                                   "description": "Min number of upsmon processs, critical threshold"
+                                  },
+        "_PROCESS_SYSLOGNG_MIN_WARN": {"type": "integer,
+                                       "description": "Min number of syslog-ng processs, warning threshold"
+                                      },
+        "_PROCESS_SYSLOGNG_MIN_CRIT": {"type": "integer,
+                                       "description": "Min number of syslog-ng processs, critical threshold"
+                                      }
+}

@@ -1,0 +1,71 @@
+#!/usr/bin/env python
+
+
+import operator
+def readable(octets):
+    units = ['K', 'M', 'G', 'T', 'P']
+    unit = 'B'
+    for i, u in enumerate(units):
+        if octets >= 1024:
+            octets = octets / 1024.0
+            unit = units[i]
+        else:
+            break
+    return octets, unit
+
+
+exit_code_output = {0: 'OK',
+                    1: 'WARNING',
+                    2: 'CRITICAL',
+                    3: 'UNKNOWN',
+                   }
+exit_code = 0
+# Get threshold
+data = {}
+perf_data = ""
+
+# Get perfs
+perfs_list = [ 'ps_state-stopped', 'ps_state-sleeping', 'ps_state-paging', 'fork_rate', 'ps_state-zombies', 'ps_state-blocked', 'ps_state-running' ]
+for perf2get in perfs_list:
+    thisperf = perf(self, perf2get)
+    data[perf2get.replace('ps_state-','')] = 0 if thisperf is None else float(thisperf)
+
+# Transform threshold
+
+for st, val in data.items():
+    crit = None
+    warn = None
+    min_warn = self.host.customs.get('_PROCESS_STATE_%s_MIN_WARN' % st.upper(), None)
+    min_crit = self.host.customs.get('_PROCESS_STATE_%s_MIN_CRIT' % st.upper(), None)
+    max_warn = self.host.customs.get('_PROCESS_STATE_%s_MAX_WARN' % st.upper(), None)
+    max_crit = self.host.customs.get('_PROCESS_STATE_%s_MAX_CRIT' % st.upper(), None)
+
+    if min_warn and min_crit:
+        warn = int(min_warn)
+        crit = int(min_crit)
+        operator_name = 'le'
+    elif max_warn and max_crit:
+        warn = int(max_warn)
+        crit = int(max_crit)
+        operator_name = 'ge'
+
+    if not warn is None:
+        perf_data += " %s=%d;%s;%s;;" % (st, val, warn, crit)
+    else:
+        perf_data += " %s=%d;;;" % (st, val)
+
+
+    # Get status
+    if not warn is None:
+        if getattr(operator, operator_name)(val, crit):
+            exit_code = 2
+        if getattr(operator, operator_name)(val, warn) and exit_code < 2:
+            exit_code = 1
+output = "Processes stats"
+
+# Finish output
+output = " - ".join((exit_code_output[exit_code], output))
+
+# Set ouput
+set_value(self, output, perf_data, exit_code)
+
